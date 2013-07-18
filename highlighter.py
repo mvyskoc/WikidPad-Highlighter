@@ -1,15 +1,22 @@
 # Syntax highlighting of the source code
 # currently are supported only: 
-#   MSSQL, Python syntax, text (without formatting)
+#   MSSQL, Python syntax, plain text (no formatting)
 #
+# 18. July 2013 - Give support for direct inserting of source code
 # Source version 0 - 10. July 2013
 #
 # Install:
 #   Put the source into "WikidPad/user_extensions/highlighter.py" and restart WikidPad 
 #
-# Usage:
-# In the WikiDpad write:
+# Usage from WikidPad:
+# Insert content of the file:  
 #   [:highlighting: "my_file.sql"; mssql; cp1250; showlines]
+#
+# or directly insert source code:
+# [:highlighting:///
+#     Your source code    
+# ///;python; showlines]
+#
 # where:
 #   my_file   - it can be absulote or relative path. For the case of relative path
 #               the base directory is directory of opened wiki.
@@ -79,7 +86,7 @@ PYTHON_RAW_STRING = [r'\"\"\".*?\"\"\"']
 PYTHON_COMMENT = ['#[^\n]*']
 PYTHON_FCE = ['(?<=def)(?:\s+)[a-zA-Z0-9_\Z]+']
 
-SQL_COMMENT = ['#[^\n]*', '/\*.*?\*/', '--[^\n]*']
+SQL_COMMENT = ['//[^\n]*', '/\*.*?\*/', '--[^\n]*']
 MSSQL_STRING = [r"\'[^\n\']*?\'"]
 MSSQL_KEYWORDS = keywords(
     ['ABSOLUTE', 'ACTION', 'ADA', 'ADD', 'ADMIN', 'AFTER',
@@ -514,7 +521,6 @@ class HighlightingHandler:
         createContent().
         """
         pass
-
               
     def createContent(self, exporter, exportType, insToken):
         """
@@ -540,29 +546,33 @@ class HighlightingHandler:
         wargs = list()
         for i, apx in enumerate(insToken.appendices):
             if i < 2:
-              args[i] = apx
+              args[i] = apx.strip().lower()
             elif i >= 2:
-              wargs.append(apx.lower())
+              wargs.append(apx.strip().lower())
             else:
               return "Expected at least 1 arguments: language"
 
-        file_name = insToken.value
         language = args[0]
-        encoding = args[1].strip()
         showline = 'showlines' in wargs
         
         if not SCHEMA.has_key(language):
             return "Syntax highlighting is not supported for the language %s" % (language,)
         
-        if os.path.isabs(file_name) == False:
-            file_name = os.path.join(baseDir, file_name)
-        
-        if not os.path.exists(file_name):
-            return "Can't find the file: %s" % ( file_name.replace('\\', '\\\\') ,)
+        if insToken.value.find('\n') >= 0:
+            txt_data = insToken.value
+            showline |= ('showlines' == args[1])
+        else:
+            file_name = insToken.value
+            encoding = args[1]
+            if os.path.isabs(file_name) == False:
+                file_name = os.path.join(baseDir, file_name)
             
-        file = codecs.open(file_name, encoding=encoding)
-        txt_data = file.read()
-        file.close()
+            if not os.path.exists(file_name):
+                return "Can't find the file: %s" % ( file_name.replace('\\', '\\\\') ,)
+            
+            file = codecs.open(file_name, encoding=encoding)
+            txt_data = file.read()
+            file.close()
     
         highliting = SyntaxHighlighting(language, WIKIFormatter())
         return highliting.Process(txt_data, showline)
